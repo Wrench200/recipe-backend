@@ -68,7 +68,7 @@ router.get('/popular', async (req, res) => {
   try {
     const recipes = await Recipe.find()
       .populate('author', 'username avatar')
-      .sort({ createdAt: -1 })
+      .sort({ 'ratings.rating': -1, createdAt: -1 })
       .limit(12);
 
     res.json(recipes);
@@ -82,6 +82,7 @@ router.get('/:id', async (req, res) => {
   try {
     const recipe = await Recipe.findById(req.params.id)
       .populate('author', 'username avatar bio')
+      .populate('ratings.user', 'username')
       .populate('comments.user', 'username avatar');
 
     if (!recipe) {
@@ -130,6 +131,40 @@ router.post('/', auth, [
   }
 });
 
+// Rate recipe
+router.post('/:id/rate', auth, [
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const recipe = await Recipe.findById(req.params.id);
+    if (!recipe) {
+      return res.status(404).json({ message: 'Recipe not found' });
+    }
+
+    const existingRating = recipe.ratings.find(
+      rating => rating.user.toString() === req.user._id.toString()
+    );
+
+    if (existingRating) {
+      existingRating.rating = req.body.rating;
+    } else {
+      recipe.ratings.push({
+        user: req.user._id,
+        rating: req.body.rating
+      });
+    }
+
+    await recipe.save();
+    res.json({ message: 'Recipe rated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // Add comment
 router.post('/:id/comment', auth, [

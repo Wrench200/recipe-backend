@@ -78,6 +78,23 @@ const recipeSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  ratings: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    rating: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 5
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   comments: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -111,6 +128,12 @@ const recipeSchema = new mongoose.Schema({
 
 
 
+
+recipeSchema.virtual('averageRating').get(function() {
+  if (this.ratings.length === 0) return 0;
+  const sum = this.ratings.reduce((acc, rating) => acc + rating.rating, 0);
+  return (sum / this.ratings.length).toFixed(1);
+});
 
 recipeSchema.virtual('totalTime').get(function() {
   return this.prepTime + this.cookTime;
